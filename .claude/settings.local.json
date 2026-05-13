@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./mvnw -q -DskipTests compile)",
+      "PowerShell(./mvnw.cmd -q -DskipTests compile 2>&1)"
+    ]
+  }
+}

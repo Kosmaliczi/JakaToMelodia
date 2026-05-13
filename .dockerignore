@@ -1,0 +1,36 @@
+# Maven
+target/
+.mvn/wrapper/maven-wrapper.jar
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Logs / lokalne pliki
+*.log
+**/.env
+**/.env.local
+
+# Pliki Docker — żeby nie kopiować ich do siebie
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Output zbudowanego frontu (przebudowujemy w Dockerze)
+src/main/resources/static/
+
+# Surefire reports
+**/surefire-reports/

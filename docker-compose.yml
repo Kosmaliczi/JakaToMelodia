@@ -1,0 +1,42 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jaka-to-melodia:latest
+    container_name: jaka-to-melodia
+    ports:
+      - "8080:8080"
+    environment:
+      # Tuning JVM
+      JAVA_OPTS: "-Xmx512m -XX:+UseG1GC -XX:MaxRAMPercentage=75"
+
+      # OAuth2 success redirect po zalogowaniu (na lokalny front).
+      # Jeśli stawiasz aplikację za reverse-proxy, zmień na zewnętrzny URL.
+      OAUTH2_SUCCESS_REDIRECT: "http://127.0.0.1:8080/"
+
+      # ── Spotify credentials ──────────────────────────────────────────────
+      # Domyślnie używane są wartości z src/main/resources/application.properties.
+      # Aby je nadpisać bez edytowania kodu, odkomentuj poniższe i podaj swoje:
+      # SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_WOLFSHIPAUTH_CLIENTID: "your-client-id"
+      # SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_WOLFSHIPAUTH_CLIENTSECRET: "your-client-secret"
+      #
+      # (Konwencja: Spring relaxed-binding zamienia kropki na "_" i usuwa myślniki —
+      # czyli `wolfship-auth.client-id` → `WOLFSHIPAUTH_CLIENTID`.)
+
+    restart: unless-stopped
+
+    # Healthcheck używa bash-owego /dev/tcp żeby nie zależeć od curl/wget
+    # (eclipse-temurin alpine ma minimalny zestaw narzędzi).
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -n > /dev/tcp/localhost/8080 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

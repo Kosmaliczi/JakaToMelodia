@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    @apply min-h-screen;
+  }
+  body {
+    @apply bg-gradient-to-b from-ink-900 to-ink-700 font-sans;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-ink-500 bg-ink-600 p-5 shadow-md shadow-black/40;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg border border-ink-400 bg-ink-500
+           px-4 py-2 text-sm font-medium transition hover:bg-ink-400 active:scale-[0.97]
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-transparent bg-spotify text-ink-900 hover:bg-spotify-light;
+  }
+  .btn-big {
+    @apply px-5 py-3 text-base;
+  }
+  .input {
+    @apply w-full max-w-sm rounded-lg border border-ink-400 bg-ink-800 px-3 py-2 text-sm
+           text-slate-100 outline-none focus:border-spotify focus:ring-1 focus:ring-spotify;
+  }
+  .pill {
+    @apply inline-block rounded-full px-3 py-0.5 text-xs font-medium;
+  }
+}
