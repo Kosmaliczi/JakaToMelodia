@@ -2,19 +2,23 @@ import { useEffect, useRef, useState } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client/dist/sockjs.js';
 import { api } from '../api.js';
-import { initSdk, play, pause } from '../spotify.js';
+import { initSdk, play, pause, resume } from '../spotify.js';
 import Scoreboard from '../components/Scoreboard.jsx';
 import RevealCard from '../components/RevealCard.jsx';
 import GuessCard from '../components/GuessCard.jsx';
 import HotkeyHelp from '../components/HotkeyHelp.jsx';
-import StatusPill from '../components/StatusPill.jsx';
+import NowPlayingCard from '../components/NowPlayingCard.jsx';
 
 export default function GameView({ initialState, onLeave }) {
   const [state, setState] = useState(initialState);
   const [sdkError, setSdkError] = useState('');
   const [sdkReady, setSdkReady] = useState(false);
+  const [lastListeningSec, setLastListeningSec] = useState(null);
   const lastPlayedUriRef = useRef(null);
   const stompRef = useRef(null);
+  const fallbackAudioRef = useRef(null);
+  const listeningStartRef = useRef(null);
+  const useFallback = !sdkReady && Boolean(sdkError);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,6 +70,8 @@ export default function GameView({ initialState, onLeave }) {
           console.error(e);
           setSdkError('Nie udało się odtworzyć utworu: ' + e.message);
         });
+      } else {
+        resume().catch(() => {});
       }
     } else {
       pause();
@@ -73,8 +79,42 @@ export default function GameView({ initialState, onLeave }) {
   }, [sdkReady, state.status, state.currentTrackUri]);
 
   useEffect(() => {
+    const audio = fallbackAudioRef.current;
+    if (!audio) return;
+    if (!useFallback) {
+      audio.pause();
+      return;
+    }
+    if (state.status === 'PLAYING' && state.currentTrackPreviewUrl) {
+      if (audio.src !== state.currentTrackPreviewUrl) {
+        audio.src = state.currentTrackPreviewUrl;
+      }
+      audio.play().catch((e) => {
+        console.warn('fallback audio play:', e.message);
+      });
+    } else {
+      audio.pause();
+    }
+  }, [useFallback, state.status, state.currentTrackPreviewUrl]);
+
+  useEffect(() => {
+    if (state.status === 'PLAYING') {
+      if (listeningStartRef.current == null) {
+        listeningStartRef.current = Date.now();
+      }
+    }
+    if (state.status === 'REVEAL' && listeningStartRef.current != null) {
+      setLastListeningSec(Math.round((Date.now() - listeningStartRef.current) / 1000));
+    }
+  }, [state.status]);
+
+  useEffect(() => {
+    listeningStartRef.current = null;
+    setLastListeningSec(null);
+  }, [state.currentRound]);
+
+  useEffect(() => {
     const handler = async (ev) => {
-      if (state.status !== 'PLAYING') return;
       const target = ev.target;
       if (
         target &&
@@ -82,6 +122,27 @@ export default function GameView({ initialState, onLeave }) {
       ) {
         return;
       }
+      if (ev.code === 'Space' || ev.key === ' ' || ev.key === 'Spacebar') {
+        if (state.status === 'PLAYING') {
+          ev.preventDefault();
+          try {
+            const updated = await api.skip(state.gameId);
+            setState(updated);
+          } catch (e) {
+            console.error(e);
+          }
+        } else if (state.status === 'REVEAL') {
+          ev.preventDefault();
+          try {
+            const updated = await api.next(state.gameId);
+            setState(updated);
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        return;
+      }
+      if (state.status !== 'PLAYING') return;
       const key = (ev.key || '').toUpperCase();
       const player = state.players.find((p) => p.hotkey === key);
       if (!player || player.lockedOut) return;
@@ -121,39 +182,43 @@ export default function GameView({ initialState, onLeave }) {
   const activePlayer =
     state.activeGuesserId && state.players.find((p) => p.id === state.activeGuesserId);
 
+  const sdkBadge = !sdkReady && !sdkError
+    ? 'Inicjalizacja Spotify SDK…'
+    : sdkError
+    ? useFallback && state.currentTrackPreviewUrl
+      ? 'Bez Premium — gram 30s podgląd z iTunes'
+      : useFallback && state.status === 'PLAYING' && !state.currentTrackPreviewUrl
+      ? 'Brak podglądu dla tego utworu — pomiń spacją'
+      : sdkError
+    : null;
+
   return (
     <div className="space-y-4">
-      <div className="card">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">
-              Runda {state.currentRound} / {state.totalRounds}
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              <StatusPill status={state.status} />
-            </p>
-          </div>
-          {!sdkReady && !sdkError && (
-            <span className="text-xs text-slate-400">Inicjalizacja SDK…</span>
-          )}
-        </div>
-        {sdkError && (
-          <p className="mt-3 text-sm text-amber-400">{sdkError}</p>
+      <NowPlayingCard state={state} sdkBadge={sdkBadge} />
+
+      <audio ref={fallbackAudioRef} preload="auto" className="hidden" />
+
+      <div
+        className={
+          'grid gap-4 ' +
+          (state.status === 'PLAYING' || state.status === 'GUESSING'
+            ? 'lg:grid-cols-2'
+            : 'grid-cols-1')
+        }
+      >
+        <Scoreboard players={state.players} activeId={state.activeGuesserId} />
+        {state.status === 'PLAYING' && <HotkeyHelp players={state.players} />}
+        {state.status === 'GUESSING' && activePlayer && (
+          <GuessCard activePlayer={activePlayer} onSubmit={submitGuess} />
         )}
       </div>
 
-      <Scoreboard players={state.players} activeId={state.activeGuesserId} />
-
-      {state.status === 'PLAYING' && (
-        <HotkeyHelp players={state.players} />
-      )}
-
-      {state.status === 'GUESSING' && activePlayer && (
-        <GuessCard activePlayer={activePlayer} onSubmit={submitGuess} />
-      )}
-
       {state.status === 'REVEAL' && state.revealedTrack && (
-        <RevealCard track={state.revealedTrack} onNext={advance} />
+        <RevealCard
+          track={state.revealedTrack}
+          onNext={advance}
+          listeningSeconds={lastListeningSec}
+        />
       )}
 
       {state.status === 'FINISHED' && (
@@ -165,26 +230,69 @@ export default function GameView({ initialState, onLeave }) {
 
 function FinishedCard({ players, onLeave }) {
   const ranking = [...players].sort((a, b) => b.score - a.score);
+  const podium = ranking.slice(0, 3);
+  const rest = ranking.slice(3);
   return (
-    <div className="card text-center">
-      <h2 className="mb-3 text-2xl font-semibold">Koniec gry</h2>
-      <ol className="mb-4 space-y-1 text-left">
-        {ranking.map((p, idx) => (
-          <li
-            key={p.id}
-            className="flex items-center justify-between rounded-md bg-ink-500 px-3 py-2"
-          >
-            <span>
-              <span className="mr-2 font-mono text-slate-400">#{idx + 1}</span>
-              {p.name}
-            </span>
-            <span className="font-semibold">{p.score} pkt</span>
-          </li>
-        ))}
-      </ol>
-      <button className="btn btn-primary" onClick={onLeave}>
+    <section className="card text-center">
+      <span className="pill bg-purple-500/15 text-purple-300 ring-1 ring-purple-500/40">
+        Koniec gry
+      </span>
+      <h2 className="mt-3 text-3xl font-bold text-gradient-spotify">Gratulacje!</h2>
+      {podium.length > 0 && (
+        <div className="mt-6 flex items-end justify-center gap-4">
+          {podium[1] && <PodiumStep player={podium[1]} place={2} height="h-20" />}
+          {podium[0] && <PodiumStep player={podium[0]} place={1} height="h-28" highlight />}
+          {podium[2] && <PodiumStep player={podium[2]} place={3} height="h-16" />}
+        </div>
+      )}
+      {rest.length > 0 && (
+        <ol className="mx-auto mt-6 max-w-sm space-y-1.5 text-left">
+          {rest.map((p, idx) => (
+            <li
+              key={p.id}
+              className="flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2"
+            >
+              <span className="flex items-center gap-2">
+                <span className="font-mono text-xs text-slate-500">#{idx + 4}</span>
+                <span>{p.name}</span>
+              </span>
+              <span className="font-mono font-semibold">{p.score}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <button className="btn btn-primary btn-big mt-6" onClick={onLeave}>
         Nowa gra
       </button>
+    </section>
+  );
+}
+
+function PodiumStep({ player, place, height, highlight }) {
+  const colors = {
+    1: 'from-amber-300 to-amber-500',
+    2: 'from-slate-300 to-slate-500',
+    3: 'from-orange-400 to-orange-600',
+  };
+  const labelColor = {
+    1: 'text-amber-300',
+    2: 'text-slate-300',
+    3: 'text-orange-400',
+  };
+  return (
+    <div className="flex w-24 flex-col items-center">
+      <span className={'mb-1 font-display text-3xl font-extrabold ' + labelColor[place]}>
+        #{place}
+      </span>
+      <span className={'truncate text-sm ' + (highlight ? 'font-semibold' : 'font-medium')}>
+        {player.name}
+      </span>
+      <span className="font-mono text-xs text-slate-400">{player.score} pkt</span>
+      <div
+        className={
+          'mt-2 w-full rounded-t-lg bg-gradient-to-b ' + height + ' ' + colors[place]
+        }
+      />
     </div>
   );
 }

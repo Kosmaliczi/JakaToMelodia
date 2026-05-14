@@ -7,6 +7,8 @@ import com.wolfship.melodia.core.model.dto.GameStatusResponse;
 import com.wolfship.melodia.core.model.dto.GameStatusResponse.TrackReveal;
 import com.wolfship.melodia.core.model.dto.GuessResponse;
 import com.wolfship.melodia.core.model.dto.StartGameRequest;
+import com.wolfship.melodia.external.itunes.ItunesService;
+import com.wolfship.melodia.external.musicbrainz.MusicBrainzService;
 import com.wolfship.melodia.external.spotify.SpotifyService;
 import com.wolfship.melodia.external.spotify.model.SpotifyTrackDto;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -26,6 +29,8 @@ public class GameService {
     private static final String[] DEFAULT_HOTKEYS = {"Q", "P", "Z", "M"};
 
     private final SpotifyService spotifyService;
+    private final ItunesService itunesService;
+    private final MusicBrainzService musicBrainzService;
     private final AnswerValidator answerValidator;
     private final ScoreEngine scoreEngine;
     private final GameEventPublisher eventPublisher;
@@ -44,6 +49,7 @@ public class GameService {
         if (tracks.isEmpty()) {
             throw new IllegalStateException("Brak grywalnych utworów w wybranej playliście");
         }
+        tracks = enrichWithItunesPreview(tracks);
 
         String gameId = UUID.randomUUID().toString();
         GameSession session = new GameSession();
@@ -99,7 +105,9 @@ public class GameService {
             }
 
             SpotifyTrackDto track = session.getCurrentTrack();
-            GuessResult result = answerValidator.evaluate(userText, track.title(), track.artist());
+            Set<String> artistAliases = musicBrainzService.getArtistAliases(track.artist());
+            GuessResult result = answerValidator.evaluate(
+                    userText, track.title(), track.artist(), List.of(), artistAliases);
 
             int points = 0;
             if (result != GuessResult.WRONG) {
@@ -121,6 +129,21 @@ public class GameService {
             GameStatusResponse response = createResponse(session);
             eventPublisher.publishStatus(response);
             return new GuessResponse(result, points, response);
+        }
+    }
+
+    public GameStatusResponse skipCurrentTrack(String gameId) {
+        GameSession session = requireSession(gameId);
+        synchronized (session) {
+            if (!"PLAYING".equals(session.getStatus())) {
+                return createResponse(session);
+            }
+            session.setActiveGuesserId(null);
+            session.setBuzzTime(null);
+            enterReveal(session);
+            GameStatusResponse response = createResponse(session);
+            eventPublisher.publishStatus(response);
+            return response;
         }
     }
 
@@ -187,6 +210,7 @@ public class GameService {
             revealedTrack = new TrackReveal(current.title(), current.artist(), current.coverUrl());
         }
 
+        Long roundStartedAtMs = s.getRoundStartTime() == null ? null : s.getRoundStartTime().toEpochMilli();
         return new GameStatusResponse(
                 s.getGameId(),
                 status,
@@ -196,11 +220,27 @@ public class GameService {
                 s.getActiveGuesserId(),
                 playing && current != null ? current.uri() : null,
                 playing && current != null ? current.previewUrl() : null,
-                revealedTrack
+                revealedTrack,
+                roundStartedAtMs
         );
     }
 
     Map<String, GameSession> getActiveSessionsView() {
         return activeSessions;
+    }
+
+    private List<SpotifyTrackDto> enrichWithItunesPreview(List<SpotifyTrackDto> tracks) {
+        List<SpotifyTrackDto> enriched = new ArrayList<>(tracks.size());
+        for (SpotifyTrackDto t : tracks) {
+            if (t.previewUrl() != null && !t.previewUrl().isBlank()) {
+                enriched.add(t);
+                continue;
+            }
+            String fromItunes = itunesService.findPreviewUrl(t.title(), t.artist()).orElse(null);
+            enriched.add(new SpotifyTrackDto(
+                    t.id(), t.uri(), t.title(), t.artist(),
+                    fromItunes, t.coverUrl(), t.durationMs()));
+        }
+        return enriched;
     }
 }

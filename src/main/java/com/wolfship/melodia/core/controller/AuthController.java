@@ -2,6 +2,7 @@ package com.wolfship.melodia.core.controller;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -92,10 +93,15 @@ public class AuthController {
         if (session != null) session.invalidate();
         SecurityContextHolder.clearContext();
 
+        Cookie expired = new Cookie("JSESSIONID", "");
+        expired.setPath("/");
+        expired.setMaxAge(0);
+        expired.setHttpOnly(true);
+        response.addCookie(expired);
+
         return ResponseEntity.ok(Map.of(
                 "loggedOut", true,
-                "loginUrl", "/oauth2/authorization/wolfship-auth",
-                "spotifyLogoutUrl", "https://www.spotify.com/logout/"
+                "redirectTo", "/"
         ));
     }
 

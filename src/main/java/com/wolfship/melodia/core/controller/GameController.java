@@ -55,6 +55,11 @@ public class GameController {
         return gameService.advanceToNextRound(gameId);
     }
 
+    @PostMapping("/{gameId}/skip")
+    public GameStatusResponse skip(@PathVariable String gameId) {
+        return gameService.skipCurrentTrack(gameId);
+    }
+
     @GetMapping("/playlists/{playlistId}/preview")
     public List<SpotifyTrackDto> previewPlaylist(@PathVariable String playlistId,
                                                  @RequestParam(defaultValue = "10") int count) {

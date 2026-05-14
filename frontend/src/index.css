@@ -1,3 +1,4 @@
+@import url('https://rsms.me/inter/inter.css');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,30 +8,76 @@
     @apply min-h-screen;
   }
   body {
-    @apply bg-gradient-to-b from-ink-900 to-ink-700 font-sans;
+    @apply font-sans text-slate-100;
+    background:
+      radial-gradient(1200px 600px at 0% -10%, rgba(29,185,84,0.18), transparent 60%),
+      radial-gradient(900px 500px at 100% -20%, rgba(59,130,246,0.10), transparent 60%),
+      linear-gradient(180deg, #0a0c10 0%, #050608 100%);
+    background-attachment: fixed;
   }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: #2a2f3a;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: #3b4252; background-clip: padding-box; }
 }
 
 @layer components {
   .card {
-    @apply rounded-xl border border-ink-500 bg-ink-600 p-5 shadow-md shadow-black/40;
+    @apply rounded-2xl border border-white/5 bg-ink-600/70 p-5 backdrop-blur-sm shadow-card-lg;
+  }
+  .card-glass {
+    @apply rounded-2xl border border-white/5 bg-white/[0.03] p-5 backdrop-blur-md;
   }
   .btn {
-    @apply inline-flex items-center justify-center rounded-lg border border-ink-400 bg-ink-500
-           px-4 py-2 text-sm font-medium transition hover:bg-ink-400 active:scale-[0.97]
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-white/10
+           bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 transition
+           hover:bg-white/10 hover:border-white/20 active:scale-[0.97]
            disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply border-transparent bg-spotify text-ink-900 hover:bg-spotify-light;
+    @apply border-transparent bg-spotify text-ink-950 font-semibold
+           hover:bg-spotify-light hover:shadow-[0_0_24px_rgba(29,185,84,0.45)];
+  }
+  .btn-ghost {
+    @apply border-transparent bg-transparent hover:bg-white/5;
   }
   .btn-big {
-    @apply px-5 py-3 text-base;
+    @apply px-6 py-3 text-base;
   }
   .input {
-    @apply w-full max-w-sm rounded-lg border border-ink-400 bg-ink-800 px-3 py-2 text-sm
-           text-slate-100 outline-none focus:border-spotify focus:ring-1 focus:ring-spotify;
+    @apply w-full rounded-full border border-white/10 bg-ink-900/60 px-4 py-2.5 text-sm
+           text-slate-100 outline-none transition placeholder:text-slate-500
+           focus:border-spotify focus:ring-2 focus:ring-spotify/40;
   }
   .pill {
-    @apply inline-block rounded-full px-3 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide;
   }
+  .kbd {
+    @apply inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-md border border-white/10
+           bg-ink-900/80 px-1.5 font-mono text-[11px] font-semibold text-slate-200
+           shadow-[inset_0_-2px_0_rgba(0,0,0,0.4)];
+  }
+  .eq-bar {
+    @apply inline-block w-1 origin-bottom rounded-full;
+  }
+  .vinyl {
+    background: repeating-radial-gradient(circle at center,
+      #1a1d24 0px, #1a1d24 2px,
+      #14181f 3px, #14181f 5px);
+  }
+}
+
+@layer utilities {
+  .text-gradient-spotify {
+    background: linear-gradient(135deg, #1ed760 0%, #1db954 50%, #0fa84a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; }
 }

@@ -3,6 +3,8 @@ package com.wolfship.melodia.core.service;
 import com.wolfship.melodia.core.model.GuessResult;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AnswerValidatorTest {
@@ -43,5 +45,27 @@ class AnswerValidatorTest {
     void ignoresFeatAndBrackets() {
         assertThat(validator.evaluate("Whisky", "Whisky (Remastered) feat. Someone", "Dżem"))
                 .isEqualTo(GuessResult.TITLE_ONLY);
+    }
+
+    @Test
+    void acceptsArtistAlias() {
+        assertThat(validator.evaluate(
+                "P!nk - So What",
+                "So What",
+                "Pink",
+                List.of(),
+                List.of("P!nk", "Alecia Beth Moore")))
+                .isEqualTo(GuessResult.BOTH);
+    }
+
+    @Test
+    void aliasAloneCountsAsArtistMatch() {
+        assertThat(validator.evaluate(
+                "Alecia Beth Moore",
+                "So What",
+                "Pink",
+                List.of(),
+                List.of("P!nk", "Alecia Beth Moore")))
+                .isEqualTo(GuessResult.ARTIST_ONLY);
     }
 }

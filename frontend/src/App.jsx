@@ -43,12 +43,11 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      const res = await api.logout();
-      window.location.href = res.spotifyLogoutUrl || '/';
+      await api.logout();
     } catch (e) {
       console.error(e);
-      window.location.href = '/';
     }
+    window.location.href = '/';
   };
 
   const missingScopes = me?.scopes
@@ -56,18 +55,24 @@ export default function App() {
     : [];
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-3xl flex-col">
-      <header className="flex items-center justify-between border-b border-ink-500 bg-black/30 px-6 py-4">
-        <h1 className="text-xl font-semibold tracking-wide">Jaka to Melodia</h1>
+    <div className="mx-auto flex min-h-screen max-w-5xl flex-col">
+      <header className="flex items-center justify-between border-b border-white/5 bg-ink-950/40 px-6 py-4 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-spotify-light to-spotify-dark shadow-[0_0_18px_rgba(29,185,84,0.4)]">
+            <svg viewBox="0 0 24 24" className="h-5 w-5 text-ink-950" fill="currentColor">
+              <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z" />
+            </svg>
+          </span>
+          <h1 className="font-display text-xl font-bold tracking-tight">
+            Jaka to <span className="text-gradient-spotify">Melodia</span>
+          </h1>
+        </div>
         <div className="flex items-center gap-3 text-sm text-slate-400">
           {view === VIEW_LOGIN && <span>Niezalogowany</span>}
           {(view === VIEW_LOBBY || view === VIEW_GAME) && (
-            <>
-              <span>Zalogowany</span>
-              <button className="btn" onClick={handleLogout}>
-                Wyloguj
-              </button>
-            </>
+            <button className="btn btn-ghost" onClick={handleLogout}>
+              Wyloguj
+            </button>
           )}
         </div>
       </header>

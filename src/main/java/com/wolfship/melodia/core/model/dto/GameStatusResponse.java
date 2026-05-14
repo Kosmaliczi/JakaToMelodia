@@ -12,7 +12,8 @@ public record GameStatusResponse(
         String activeGuesserId,
         String currentTrackUri,
         String currentTrackPreviewUrl,
-        TrackReveal revealedTrack
+        TrackReveal revealedTrack,
+        Long roundStartedAtMs
 ) {
     public record TrackReveal(String title, String artist, String coverUrl) {}
 }

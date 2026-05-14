@@ -67,7 +67,9 @@ export default function LobbyView({ onGameStarted }) {
     <div className="space-y-4">
       <div className="card">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">1. Wybierz playlistę</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+            1. Wybierz playlistę
+          </h2>
           <button className="btn" onClick={loadPlaylists} disabled={playlists === null}>
             Odśwież
           </button>
@@ -85,7 +87,9 @@ export default function LobbyView({ onGameStarted }) {
       </div>
 
       <div className="card">
-        <h2 className="mb-3 text-lg font-semibold">2. Gracze (2-4)</h2>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+          2. Gracze (2-4)
+        </h2>
         <div className="space-y-2">
           {HOTKEYS.map((key, idx) => (
             <div key={key} className="flex items-center gap-3">
@@ -103,7 +107,9 @@ export default function LobbyView({ onGameStarted }) {
       </div>
 
       <div className="card">
-        <h2 className="mb-3 text-lg font-semibold">3. Liczba rund</h2>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+          3. Liczba rund
+        </h2>
         <input
           type="number"
           className="input max-w-[120px]"

@@ -34,5 +34,6 @@ export const api = {
   guess: (gameId, playerId, userText) =>
     post(`/api/game/${gameId}/guess`, { playerId, userText }),
   next: (gameId) => post(`/api/game/${gameId}/next`),
+  skip: (gameId) => post(`/api/game/${gameId}/skip`),
   status: (gameId) => get(`/api/game/${gameId}`),
 };
