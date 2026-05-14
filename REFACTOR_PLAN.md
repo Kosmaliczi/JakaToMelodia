@@ -1,7 +1,7 @@
 # Plan refactoru: Multi-Device + JWT
 
 **Cel:** Wersja `0.2.0` — gracze grają z własnych urządzeń (telefon), host odtwarza muzykę, autoryzacja przez JWT.
-**Punkt wyjścia:** [`0.1.0-alpha`](DOCUMENTATION.md) — single-device, hotkeye Q/P/Z/M.
+**Punkt wyjścia:** [`0.1.0-alpha`](README.md) — single-device, hotkeye Q/P/Z/M.
 **Strategia:** Cztery fazy, każda samodzielnie deployowalna. Po każdej fazie aplikacja działa.
 
 ---
