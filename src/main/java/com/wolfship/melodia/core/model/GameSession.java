@@ -8,6 +8,11 @@ import java.util.List;
 @Data
 public class GameSession {
     private String gameId;
+    /**
+     * 6-znakowy kod pokoju (alfabet bez I/O/0/1), pokazywany graczom
+     * do dołączenia z innego urządzenia. Wprowadzone w 0.2 (Faza 1).
+     */
+    private String roomCode;
     private List<Player> players;
     private List<SpotifyTrackDto> tracks;
     private int currentRoundIndex = 0;

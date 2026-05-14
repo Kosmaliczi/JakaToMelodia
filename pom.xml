@@ -50,6 +50,25 @@
 			<version>1.11.0</version>
 		</dependency>
 
+		<!-- JJWT - JWT dla autoryzacji graczy (0.2 Faza 2) -->
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>0.12.6</version>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>0.12.6</version>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-jackson</artifactId>
+			<version>0.12.6</version>
+			<scope>runtime</scope>
+		</dependency>
+
 		<!-- Lombok - Generowanie Getterów/Setterów/Konstruktorów -->
 		<dependency>
 			<groupId>org.projectlombok</groupId>

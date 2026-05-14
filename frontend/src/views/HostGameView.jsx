@@ -8,8 +8,9 @@ import RevealCard from '../components/RevealCard.jsx';
 import GuessCard from '../components/GuessCard.jsx';
 import HotkeyHelp from '../components/HotkeyHelp.jsx';
 import NowPlayingCard from '../components/NowPlayingCard.jsx';
+import HostLobbyCard from '../components/HostLobbyCard.jsx';
 
-export default function GameView({ initialState, onLeave }) {
+export default function HostGameView({ initialState, onLeave }) {
   const [state, setState] = useState(initialState);
   const [sdkError, setSdkError] = useState('');
   const [sdkReady, setSdkReady] = useState(false);
@@ -179,6 +180,11 @@ export default function GameView({ initialState, onLeave }) {
     }
   };
 
+  const startFromLobby = async () => {
+    const updated = await api.startLobby(state.gameId);
+    setState(updated);
+  };
+
   const activePlayer =
     state.activeGuesserId && state.players.find((p) => p.id === state.activeGuesserId);
 
@@ -191,6 +197,15 @@ export default function GameView({ initialState, onLeave }) {
       ? 'Brak podglądu dla tego utworu — pomiń spacją'
       : sdkError
     : null;
+
+  if (state.status === 'WAITING') {
+    return (
+      <div className="space-y-4">
+        <HostLobbyCard state={state} onStart={startFromLobby} />
+        <audio ref={fallbackAudioRef} preload="auto" className="hidden" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

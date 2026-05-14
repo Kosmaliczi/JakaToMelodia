@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Iterator;
 import java.util.Map;
 
 @Slf4j
@@ -26,19 +25,19 @@ public class SessionCleanupService {
     public void purgeStaleSessions() {
         Instant threshold = Instant.now().minus(Duration.ofMinutes(ttlMinutes));
         Map<String, GameSession> sessions = gameService.getActiveSessionsView();
-        int removed = 0;
-        Iterator<Map.Entry<String, GameSession>> it = sessions.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<String, GameSession> entry = it.next();
+        java.util.List<String> stale = new java.util.ArrayList<>();
+        for (Map.Entry<String, GameSession> entry : sessions.entrySet()) {
             GameSession s = entry.getValue();
             Instant last = s.getLastActivity() != null ? s.getLastActivity() : s.getRoundStartTime();
             if (last == null || last.isBefore(threshold) || "FINISHED".equals(s.getStatus())) {
-                it.remove();
-                removed++;
+                stale.add(entry.getKey());
             }
         }
-        if (removed > 0) {
-            log.info("SessionCleanupService usunął {} sesji (TTL = {} min)", removed, ttlMinutes);
+        for (String gameId : stale) {
+            gameService.removeSession(gameId);
+        }
+        if (!stale.isEmpty()) {
+            log.info("SessionCleanupService usunął {} sesji (TTL = {} min)", stale.size(), ttlMinutes);
         }
     }
 }

@@ -10,7 +10,7 @@ import java.util.List;
 
 public record StartGameRequest(
         @NotEmpty
-        @Size(min = 2, max = 4, message = "Liczba graczy musi być w zakresie 2-4")
+        @Size(min = 1, max = 4, message = "Liczba graczy musi być w zakresie 1-4")
         List<@NotBlank String> playerNames,
 
         @NotBlank

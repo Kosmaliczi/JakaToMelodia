@@ -70,6 +70,17 @@ export default function NowPlayingCard({ state, sdkBadge }) {
           </div>
           {sdkBadge && <div className="mt-2 text-xs text-amber-300">{sdkBadge}</div>}
         </div>
+        {state.roomCode && (
+          <div className="hidden flex-col items-center gap-1 rounded-xl border border-white/10 bg-ink-950/60 px-4 py-3 sm:flex">
+            <span className="text-[10px] uppercase tracking-wider text-slate-400">
+              Kod pokoju
+            </span>
+            <span className="font-mono text-2xl font-bold tracking-[0.25em] text-gradient-spotify">
+              {state.roomCode}
+            </span>
+            <span className="text-[10px] text-slate-500">/join</span>
+          </div>
+        )}
       </div>
     </section>
   );

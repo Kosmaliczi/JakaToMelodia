@@ -1,5 +1,7 @@
 package com.wolfship.melodia.core.model.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
-public record BuzzRequest(@NotBlank String playerId) {}
+/**
+ * playerId opcjonalny: dla single-device hosta wysyłany w body,
+ * dla graczy z JWT brany z tokenu (pole ignorowane).
+ */
+public record BuzzRequest(String playerId) {}

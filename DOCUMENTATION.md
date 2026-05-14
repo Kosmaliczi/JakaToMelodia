@@ -1,8 +1,8 @@
 # Jaka to Melodia — dokumentacja
 
-**Wersja:** `0.1.0-alpha`
+**Wersja:** `0.2.0-alpha` (faza 1/4 rolloutu multi-device — patrz [REFACTOR_PLAN.md](REFACTOR_PLAN.md))
 **Data wydania:** 2026-05-14
-**Status:** Alpha — single-device, gotowa do testów towarzyskich; nie nadaje się jeszcze do publicznego deploymentu.
+**Status:** Alpha — single-device gra w pełni działa; szkielet multi-device dodany (kod pokoju, routing, JoinView), pełna funkcjonalność w kolejnych fazach.
 
 ---
 

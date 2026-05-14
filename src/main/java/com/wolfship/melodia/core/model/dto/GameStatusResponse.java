@@ -5,6 +5,7 @@ import java.util.List;
 
 public record GameStatusResponse(
         String gameId,
+        String roomCode,
         String status,
         int currentRound,
         int totalRounds,

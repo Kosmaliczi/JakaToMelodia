@@ -33,19 +33,24 @@ export default function LobbyView({ onGameStarted }) {
     setPlayerNames((prev) => prev.map((v, i) => (i === index ? value : v)));
   };
 
-  const handleStart = async () => {
-    setError('');
+  const validateCommon = () => {
     if (!selected) {
       setError('Wybierz playlistę.');
-      return;
-    }
-    const trimmed = playerNames.map((n) => n.trim()).filter(Boolean);
-    if (trimmed.length < 2 || trimmed.length > 4) {
-      setError('Wpisz imiona 2-4 graczy.');
-      return;
+      return false;
     }
     if (!rounds || rounds < 1 || rounds > 50) {
       setError('Liczba rund musi być w zakresie 1-50.');
+      return false;
+    }
+    return true;
+  };
+
+  const handleStart = async () => {
+    setError('');
+    if (!validateCommon()) return;
+    const trimmed = playerNames.map((n) => n.trim()).filter(Boolean);
+    if (trimmed.length < 1 || trimmed.length > 4) {
+      setError('Wpisz imiona 1-4 graczy (lub użyj "Stwórz lobby" żeby gracze sami dołączyli).');
       return;
     }
     setSubmitting(true);
@@ -58,6 +63,23 @@ export default function LobbyView({ onGameStarted }) {
       onGameStarted(game);
     } catch (e) {
       setError('Błąd startu gry: ' + e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateLobby = async () => {
+    setError('');
+    if (!validateCommon()) return;
+    setSubmitting(true);
+    try {
+      const game = await api.createLobby({
+        playlistId: selected.id,
+        totalRounds: Number(rounds),
+      });
+      onGameStarted(game);
+    } catch (e) {
+      setError('Błąd tworzenia lobby: ' + e.message);
     } finally {
       setSubmitting(false);
     }
@@ -88,7 +110,7 @@ export default function LobbyView({ onGameStarted }) {
 
       <div className="card">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-          2. Gracze (2-4)
+          2. Gracze (1-4) — tylko dla single-device
         </h2>
         <div className="space-y-2">
           {HOTKEYS.map((key, idx) => (
@@ -120,14 +142,27 @@ export default function LobbyView({ onGameStarted }) {
         />
       </div>
 
-      <div className="card">
-        <button
-          className="btn btn-primary btn-big w-full"
-          onClick={handleStart}
-          disabled={submitting}
-        >
-          {submitting ? 'Uruchamiam…' : 'Rozpocznij grę'}
-        </button>
+      <div className="card space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            className="btn btn-primary btn-big w-full"
+            onClick={handleStart}
+            disabled={submitting}
+          >
+            {submitting ? 'Uruchamiam…' : 'Rozpocznij grę'}
+          </button>
+          <button
+            className="btn btn-big w-full"
+            onClick={handleCreateLobby}
+            disabled={submitting}
+            title="Stwórz pokój, do którego dołączą gracze z innych urządzeń"
+          >
+            {submitting ? '…' : 'Stwórz lobby'}
+          </button>
+        </div>
+        <p className="text-xs text-slate-500">
+          „Rozpocznij grę" — single-device z hotkeyami Q/P/Z/M. „Stwórz lobby" — gracze dołączają z telefonów po 6-znakowym kodzie.
+        </p>
         {error && (
           <div className="mt-3">
             <p className="text-sm text-red-400">{error}</p>
