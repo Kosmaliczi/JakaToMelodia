@@ -118,6 +118,25 @@ public class GameService {
         session.setTracks(tracks);
         // roundStartTime = null dopóki host nie wystartuje
 
+        // Host też gra: jeśli podał swój nick, dodajemy go jako pierwszego
+        // gracza z hotkeyem Q i ready=true (host nie potrzebuje toggle ready,
+        // i tak on klika "Rozpocznij grę").
+        if (request.hostName() != null && !request.hostName().isBlank()) {
+            String trimmed = request.hostName().trim();
+            if (trimmed.length() < 2 || trimmed.length() > 20) {
+                throw new IllegalArgumentException("Nick hosta musi mieć 2-20 znaków");
+            }
+            Player host = new Player(
+                    UUID.randomUUID().toString(),
+                    trimmed,
+                    DEFAULT_HOTKEYS[0],
+                    0,
+                    false,
+                    null,
+                    true);
+            session.getPlayers().add(host);
+        }
+
         activeSessions.put(gameId, session);
         roomCodeIndex.put(roomCode, gameId);
         GameStatusResponse response = createResponse(session);

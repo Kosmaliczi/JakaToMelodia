@@ -1,0 +1,69 @@
+# Production compose — używaj na serwerze (np. EC2) z domeną i HTTPS.
+# Wymaga pliku .env z SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, MELODIA_JWT_SECRET, PUBLIC_DOMAIN.
+#
+# Uruchomienie:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Caddy automatycznie pobiera certyfikat Let's Encrypt dla PUBLIC_DOMAIN (port 80/443
+# muszą być otwarte i wskazywać na ten serwer). Cert odnawia się automatycznie.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: melodia-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      PUBLIC_DOMAIN: "${PUBLIC_DOMAIN}"
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - melodia
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jaka-to-melodia:latest
+    container_name: melodia-app
+    restart: unless-stopped
+    # Bez `ports:` — appka jest tylko wewnątrz sieci Docker, ekspozycję robi Caddy.
+    expose:
+      - "8080"
+    environment:
+      JAVA_OPTS: "-Xmx512m -XX:+UseG1GC -XX:MaxRAMPercentage=75"
+      OAUTH2_SUCCESS_REDIRECT: "/"
+      SPOTIFY_CLIENT_ID: "${SPOTIFY_CLIENT_ID}"
+      SPOTIFY_CLIENT_SECRET: "${SPOTIFY_CLIENT_SECRET}"
+      MELODIA_JWT_SECRET: "${MELODIA_JWT_SECRET}"
+      MELODIA_COOKIE_SECURE: "true"
+      MELODIA_LOG_LEVEL: "INFO"
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -n > /dev/tcp/localhost/8080 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    networks:
+      - melodia
+
+networks:
+  melodia:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

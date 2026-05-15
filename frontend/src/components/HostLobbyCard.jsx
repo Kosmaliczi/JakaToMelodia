@@ -1,16 +1,35 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import { api } from '../api.js';
 
 export default function HostLobbyCard({ state, onStart }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [lanAddresses, setLanAddresses] = useState([]);
+  const [selectedAddrIdx, setSelectedAddrIdx] = useState(0);
 
   const players = state.players || [];
   const allReady = players.length > 0 && players.every((p) => p.ready);
-  const joinUrl = useMemo(() => {
-    if (typeof window === 'undefined') return '';
-    const origin = window.location.origin;
-    return `${origin}/join?code=${state.roomCode}`;
-  }, [state.roomCode]);
+  const port = typeof window !== 'undefined' ? window.location.port || '80' : '8080';
+
+  useEffect(() => {
+    let cancelled = false;
+    api.lanAddresses()
+      .then((res) => {
+        if (cancelled) return;
+        setLanAddresses(res.addresses || []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const joinUrls = useMemo(() => {
+    return lanAddresses.map((ip) =>
+      `http://${ip}:${port}/join?code=${state.roomCode}`
+    );
+  }, [lanAddresses, port, state.roomCode]);
+
+  const selectedUrl = joinUrls[selectedAddrIdx] || '';
 
   const handleStart = async () => {
     setError('');
@@ -29,26 +48,73 @@ export default function HostLobbyCard({ state, onStart }) {
     navigator.clipboard.writeText(state.roomCode).catch(() => {});
   };
 
+  const copyUrl = () => {
+    if (typeof navigator?.clipboard?.writeText !== 'function' || !selectedUrl) return;
+    navigator.clipboard.writeText(selectedUrl).catch(() => {});
+  };
+
   return (
     <section className="card relative overflow-hidden">
       <div className="pointer-events-none absolute -top-24 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-spotify/20 blur-3xl" />
-      <div className="relative grid gap-6 md:grid-cols-[auto,1fr]">
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-ink-950/70 px-6 py-5 text-center">
-          <span className="text-[10px] uppercase tracking-wider text-slate-400">
-            Kod pokoju
-          </span>
-          <button
-            onClick={copyCode}
-            className="mt-1 font-mono text-4xl font-bold tracking-[0.3em] text-gradient-spotify transition hover:opacity-80"
-            title="Kliknij, aby skopiować"
-          >
-            {state.roomCode}
-          </button>
-          <p className="mt-2 text-xs text-slate-500">
-            Wejdź na <span className="font-mono text-slate-300">/join</span>
-          </p>
-          {joinUrl && (
-            <p className="mt-1 break-all text-[10px] text-slate-600">{joinUrl}</p>
+      <div className="relative grid gap-6 lg:grid-cols-[auto,1fr]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center rounded-2xl border border-white/10 bg-ink-950/70 px-6 py-5 text-center">
+            <span className="text-[10px] uppercase tracking-wider text-slate-400">
+              Kod pokoju
+            </span>
+            <button
+              onClick={copyCode}
+              className="mt-1 font-mono text-4xl font-bold tracking-[0.3em] text-gradient-spotify transition hover:opacity-80"
+              title="Kliknij, aby skopiować"
+            >
+              {state.roomCode}
+            </button>
+            <p className="mt-2 text-xs text-slate-500">
+              <span className="font-mono text-slate-300">/join</span>
+            </p>
+          </div>
+
+          {selectedUrl && (
+            <div className="flex flex-col items-center rounded-2xl border border-white/10 bg-white p-3">
+              <QRCodeSVG
+                value={selectedUrl}
+                size={144}
+                bgColor="#ffffff"
+                fgColor="#0a0c10"
+                level="M"
+                includeMargin={false}
+              />
+            </div>
+          )}
+
+          {joinUrls.length > 0 ? (
+            <div className="w-full max-w-[180px] text-center">
+              <p className="text-[10px] uppercase tracking-wider text-slate-400">
+                Skanuj telefonem
+              </p>
+              <button
+                onClick={copyUrl}
+                className="mt-1 block w-full break-all rounded-md px-2 py-1 text-center font-mono text-[10px] text-slate-400 transition hover:bg-white/5 hover:text-slate-200"
+                title="Kliknij, aby skopiować URL"
+              >
+                {selectedUrl}
+              </button>
+              {joinUrls.length > 1 && (
+                <select
+                  className="mt-1 w-full rounded-md border border-white/10 bg-ink-900 px-2 py-1 text-[10px] text-slate-300"
+                  value={selectedAddrIdx}
+                  onChange={(e) => setSelectedAddrIdx(Number(e.target.value))}
+                >
+                  {lanAddresses.map((ip, idx) => (
+                    <option key={ip} value={idx}>{ip}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          ) : (
+            <p className="text-center text-[10px] text-slate-500 max-w-[180px]">
+              Nie wykryłem LAN IP — wejdź na adres serwera z /join ręcznie.
+            </p>
           )}
         </div>
 
@@ -67,7 +133,7 @@ export default function HostLobbyCard({ state, onStart }) {
           </h2>
           <p className="text-sm text-slate-400">
             {players.length === 0
-              ? 'Podyktuj kod, a gracze dołączą z telefonów.'
+              ? 'Podyktuj kod lub każ skanować QR — gracze dołączą.'
               : `${players.filter((p) => p.ready).length} / ${players.length} gotowych`}
           </p>
 

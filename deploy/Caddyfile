@@ -1,0 +1,31 @@
+# Caddy 2 - automatyczny HTTPS via Let's Encrypt
+# PUBLIC_DOMAIN jest wstrzykiwany ze zmiennej środowiskowej.
+# Caddy odnawia certyfikat automatycznie co ~60 dni.
+
+{$PUBLIC_DOMAIN} {
+    # WebSocket dla STOMP / SockJS — Caddy obsługuje upgrade z automatu.
+    reverse_proxy app:8080 {
+        # Headers ustawiane domyślnie przez Caddy:
+        # X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host
+        # Spring czyta je dzięki server.forward-headers-strategy=framework
+    }
+
+    # Gzip + zstd dla mniejszych payloadów (JS bundle, JSON state).
+    encode zstd gzip
+
+    # Bezpieczne nagłówki
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Permissions-Policy: minimum dla Spotify Web Playback SDK
+        Permissions-Policy "autoplay=(self), encrypted-media=(self)"
+    }
+
+    # Logi do stdout (zbierane przez `docker compose logs`)
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}

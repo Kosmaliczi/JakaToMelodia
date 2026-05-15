@@ -1,5 +1,12 @@
 import { getTokenForGame } from './playerSession.js';
 
+// Marker wersji — sprawdź w konsoli przeglądarki, czy widzisz ten napis.
+// Jeśli nie — bundle jest stary, zrób `docker compose build --no-cache`.
+const FRONTEND_BUILD_TAG = '0.2.3-lan-qr-2026-05-15';
+if (typeof window !== 'undefined') {
+  console.info('[melodia] frontend build:', FRONTEND_BUILD_TAG);
+}
+
 async function parse(res) {
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
@@ -37,6 +44,19 @@ function post(url, body, opts = {}) {
   }).then(parse);
 }
 
+/**
+ * Host-only POST — gwarantowanie BRAK nagłówka Authorization.
+ * Niezależnie od stanu sessionStorage. Cookie OAuth2 wystarcza.
+ */
+function hostPost(url, body) {
+  return fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  }).then(parse);
+}
+
 export const api = {
   me: () => get('/api/auth/me'),
   token: () => get('/api/auth/token'),
@@ -45,19 +65,24 @@ export const api = {
     get('/api/auth/diagnostics' + (playlistId ? `?playlistId=${encodeURIComponent(playlistId)}` : '')),
   playlists: () => get('/api/playlists'),
 
-  startGame: (req) => post('/api/game/start', req),
-  createLobby: (req) => post('/api/game/lobby', req),
-  startLobby: (gameId) => post(`/api/game/${gameId}/start`, undefined, { gameId }),
+  // === HOST-only — gwarantowany brak Bearer, tylko cookie OAuth2.
+  startGame: (req) => hostPost('/api/game/start', req),
+  createLobby: (req) => hostPost('/api/game/lobby', req),
+  startLobby: (gameId) => hostPost(`/api/game/${gameId}/start`),
+  next: (gameId) => hostPost(`/api/game/${gameId}/next`),
+  skip: (gameId) => hostPost(`/api/game/${gameId}/skip`),
+
+  // === Mieszane / player — Bearer z sessionStorage tej karty (jeśli jest)
   setReady: (gameId, ready) => post(`/api/game/${gameId}/ready`, { ready }, { gameId }),
   buzz: (gameId, playerId) =>
     post(`/api/game/${gameId}/buzz`, { playerId }, { gameId }),
   guess: (gameId, playerId, userText) =>
     post(`/api/game/${gameId}/guess`, { playerId, userText }, { gameId }),
-  next: (gameId) => post(`/api/game/${gameId}/next`, undefined, { gameId }),
-  skip: (gameId) => post(`/api/game/${gameId}/skip`, undefined, { gameId }),
   gameStatus: (gameId) => get(`/api/game/${gameId}`, { gameId }),
 
-  // 0.2
   resolveRoomCode: (code) => get(`/api/rooms/code/${encodeURIComponent(code)}`),
   joinRoom: (code, name) => post(`/api/rooms/${encodeURIComponent(code)}/join`, { name }),
+
+  // LAN-only — adresy site-local pod którymi serwer jest dostępny
+  lanAddresses: () => get('/api/network/lan-addresses'),
 };

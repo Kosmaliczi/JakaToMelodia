@@ -13,6 +13,7 @@ import com.wolfship.melodia.shared.security.JwtService;
 import com.wolfship.melodia.shared.security.PlayerPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -28,6 +29,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/game")
 @RequiredArgsConstructor
@@ -121,10 +123,17 @@ public class GameController {
     }
 
     private void requireHost(String pathGameId) {
+        // Brak PlayerPrincipal w kontekście = OAuth2 session hosta (lub anonim
+        // który i tak nic nie zdziała). Bearer wygrywa nad cookie w filtrze,
+        // więc jawne "udawanie playera" bezpiecznie eskaluje do 403.
         PlayerPrincipal principal = currentPrincipal();
-        if (principal == null) return;                       // OAuth2 session = host
+        if (principal == null) return;
         if (JwtService.ROLE_HOST.equalsIgnoreCase(principal.role())
                 && pathGameId.equals(principal.gameId())) return;
+        log.warn("requireHost: 403 dla pathGameId={}, principal.role={}, principal.gameId={}, principal.playerId={}. " +
+                        "Najczęstsza przyczyna: stary PLAYER token w sessionStorage karty hosta. " +
+                        "Wyczyść sessionStorage karty hosta lub upewnij się, że host nie wykonywał /join w tej samej karcie.",
+                pathGameId, principal.role(), principal.gameId(), principal.playerId());
         throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                 "Tylko host może wykonywać tę akcję");
     }

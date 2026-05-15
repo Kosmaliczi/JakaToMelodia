@@ -9,8 +9,17 @@ import GuessCard from '../components/GuessCard.jsx';
 import HotkeyHelp from '../components/HotkeyHelp.jsx';
 import NowPlayingCard from '../components/NowPlayingCard.jsx';
 import HostLobbyCard from '../components/HostLobbyCard.jsx';
+import { clearAllSessions } from '../playerSession.js';
 
 export default function HostGameView({ initialState, onLeave }) {
+  // Defense in depth: host nigdy nie powinien mieć player JWT w sessionStorage
+  // swojej karty. Gdyby jednak miał (np. testował /join w tej samej karcie),
+  // czyścimy wszystko zaraz po wejściu na widok hosta, żeby kolejne wywołania
+  // /start, /skip, /next nie poszły z błędnym Bearerem.
+  useEffect(() => {
+    clearAllSessions();
+  }, []);
+
   const [state, setState] = useState(initialState);
   const [sdkError, setSdkError] = useState('');
   const [sdkReady, setSdkReady] = useState(false);

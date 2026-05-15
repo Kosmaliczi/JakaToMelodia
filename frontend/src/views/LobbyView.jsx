@@ -8,6 +8,7 @@ export default function LobbyView({ onGameStarted }) {
   const [selected, setSelected] = useState(null);
   const [playerNames, setPlayerNames] = useState(['', '', '', '']);
   const [rounds, setRounds] = useState(10);
+  const [hostName, setHostName] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [diag, setDiag] = useState(null);
@@ -71,11 +72,17 @@ export default function LobbyView({ onGameStarted }) {
   const handleCreateLobby = async () => {
     setError('');
     if (!validateCommon()) return;
+    const trimmedHost = hostName.trim();
+    if (trimmedHost && (trimmedHost.length < 2 || trimmedHost.length > 20)) {
+      setError('Twój nick musi mieć 2-20 znaków (lub zostaw puste, by być tylko MC).');
+      return;
+    }
     setSubmitting(true);
     try {
       const game = await api.createLobby({
         playlistId: selected.id,
         totalRounds: Number(rounds),
+        hostName: trimmedHost || undefined,
       });
       onGameStarted(game);
     } catch (e) {
@@ -142,6 +149,25 @@ export default function LobbyView({ onGameStarted }) {
         />
       </div>
 
+      <div className="card">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+          4. Lobby (dla trybu multi-device)
+        </h2>
+        <label className="mb-1 block text-xs text-slate-500">
+          Twój nick (gdy chcesz grać razem z innymi z lobby)
+        </label>
+        <input
+          className="input"
+          placeholder="np. Mateusz — pusty = host jest tylko MC"
+          maxLength={20}
+          value={hostName}
+          onChange={(e) => setHostName(e.target.value)}
+        />
+        <p className="mt-2 text-[11px] text-slate-500">
+          Twój hotkey w grze: <kbd className="kbd">Q</kbd>. Pozostali gracze dołączą po 6-znakowym kodzie z telefonu.
+        </p>
+      </div>
+
       <div className="card space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <button
@@ -161,7 +187,7 @@ export default function LobbyView({ onGameStarted }) {
           </button>
         </div>
         <p className="text-xs text-slate-500">
-          „Rozpocznij grę" — single-device z hotkeyami Q/P/Z/M. „Stwórz lobby" — gracze dołączają z telefonów po 6-znakowym kodzie.
+          „Rozpocznij grę" — single-device z hotkeyami Q/P/Z/M (z sekcji 2). „Stwórz lobby" — gracze dołączają z telefonów po 6-znakowym kodzie, host gra jeśli wpisał nick w sekcji 4.
         </p>
         {error && (
           <div className="mt-3">

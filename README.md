@@ -291,19 +291,34 @@ Pipeline w [AnswerValidator](src/main/java/com/wolfship/melodia/core/service/Ans
 - Konto Spotify Developer + zarejestrowana aplikacja → Client ID + Secret
 - Konto Spotify Premium (do pełnych utworów; bez Premium gramy 30s podglądy)
 
-### Zmienne środowiskowe (`.env` lub inline)
-```bash
+### Zmienne środowiskowe — wymagany plik `.env`
+
+**Aplikacja NIE wystartuje bez sekretów Spotify.** Skopiuj szablon:
+
+```powershell
+Copy-Item .env.example .env
+# albo Linux/macOS:
+cp .env.example .env
+```
+
+Edytuj `.env` i wypełnij:
+```env
 SPOTIFY_CLIENT_ID=<z dashboard Spotify>
 SPOTIFY_CLIENT_SECRET=<z dashboard Spotify>
-OAUTH2_SUCCESS_REDIRECT=http://127.0.0.1:8080/
+# Opcjonalnie — stabilny JWT (bez tego restart kontenera unieważnia tokeny graczy):
+MELODIA_JWT_SECRET=<32+ losowych bajtów, np. openssl rand -base64 48>
+MELODIA_COOKIE_SECURE=false
 ```
-W Spotify Developer Dashboard ustaw **Redirect URI** na `http://127.0.0.1:8080/login/oauth2/code/wolfship-auth`.
+
+W Spotify Developer Dashboard ustaw **Redirect URI** na `http://127.0.0.1:8080/login/oauth2/code/wolfship-auth` (dla LAN IP zwykle nie trzeba — patrz §10b).
 
 ### Uruchomienie
 ```bash
 docker compose up -d --build
 # → http://127.0.0.1:8080
 ```
+
+Jeśli przy starcie widzisz `Client id of registration 'wolfship-auth' must not be empty` — `.env` nie istnieje lub jest pusty.
 
 Pełny rebuild (gdy zmieniony front):
 ```bash
@@ -322,6 +337,262 @@ npm install
 npm run dev
 # → http://127.0.0.1:5173 (proxy do :8080)
 ```
+
+---
+
+## 10b. Dostęp z innych urządzeń w tej samej sieci WiFi (tryb LAN-only)
+
+**TL;DR — najprostszy setup bez żadnego hostingu i bez zmian w Spotify Dashboard:**
+
+1. **Ustaw `MELODIA_HOST_LAN_IP` w `.env`** — bez tego QR pokaże IP Dockera (172.x.x.x), nie twoje WiFi (krok 1 niżej).
+2. Host uruchamia serwer i wchodzi na `http://127.0.0.1:8080` (Spotify już to akceptuje, nic do rejestracji).
+3. Host klika „Stwórz lobby" — na ekranie pojawia się **QR code z kodem pokoju w zaszyfrowanym linku** do twojego LAN IP.
+4. Gracze skanują QR telefonem (czytnik QR w aparacie) → ląduje na `http://<LAN-IP>:8080/join?code=ABC123` z prefillowanym kodem → wpisują nick → grają.
+
+**Dlaczego trzeba ustawić IP ręcznie:** kontener Docker widzi tylko swoje bridge interface (172.x.x.x), nie WiFi hosta. Backend nie ma jak sam zgadnąć — musisz mu powiedzieć przez `MELODIA_HOST_LAN_IP`. **Spotify Dashboard nie wymaga żadnej akcji** — host loguje się przez `127.0.0.1`, gracze nigdy nie ruszają OAuth (mają JWT z `/join`).
+
+Aby gracze mogli dołączać telefonami z tej samej sieci, potrzeba tylko:
+
+### 1. Znajdź swój LAN IP i wstaw do `.env`
+
+**Windows (PowerShell):**
+```powershell
+ipconfig | Select-String -Pattern "IPv4"
+# np. IPv4 Address. . . . . . . . . . . : 192.168.1.50
+```
+
+**macOS / Linux:**
+```bash
+ip addr | grep "inet " | grep -v 127.0.0.1
+# albo na macOS: ipconfig getifaddr en0
+```
+
+Załóżmy że twój IP to `192.168.1.50`. Edytuj `.env`:
+```env
+MELODIA_HOST_LAN_IP=192.168.1.50
+```
+
+Możesz podać kilka rozdzielonych przecinkiem jeśli masz WiFi + Ethernet:
+```env
+MELODIA_HOST_LAN_IP=192.168.1.50,192.168.1.51
+```
+
+Po zmianie `.env` zrestartuj kontener:
+```powershell
+docker compose up -d
+```
+(rebuild niepotrzebny — to tylko env var).
+
+### 2. Spotify Dashboard — nic do roboty (host loguje się przez localhost)
+
+Host wchodzi na `http://127.0.0.1:8080` na laptopie, gdzie już jest zarejestrowany redirect URI `http://127.0.0.1:8080/login/oauth2/code/wolfship-auth`. Gracze nie ruszają OAuth — używają JWT wystawianego przez `/api/rooms/{code}/join`.
+
+> **Wyjątek**: gdyby host też chciał wchodzić przez LAN IP (np. żeby przetestować widok hosta z innego urządzenia w sieci), wtedy musi dodać `http://192.168.1.50:8080/login/oauth2/code/wolfship-auth` w Spotify Dashboard. Dla typowej rozgrywki to niepotrzebne.
+
+### 3. Otwórz port w firewallu
+
+**Windows (PowerShell jako administrator):**
+```powershell
+New-NetFirewallRule -DisplayName "Jaka to Melodia" -Direction Inbound `
+                    -LocalPort 8080 -Protocol TCP -Action Allow
+```
+
+**macOS:** System Settings → Network → Firewall → Options → Add app (Docker / java) → Allow incoming.
+
+**Linux (ufw):**
+```bash
+sudo ufw allow 8080/tcp
+```
+
+### 4. Sprawdź dostęp
+
+Na telefonie wpisz w przeglądarce:
+```
+http://192.168.1.50:8080
+```
+
+Powinieneś zobaczyć ekran logowania (Spotify) — to dla osoby która chce być **hostem**. Gracz przechodzi od razu na `/join`:
+```
+http://192.168.1.50:8080/join
+```
+
+### 5. Flow rozgrywki LAN-party
+
+1. **Host** otwiera `http://127.0.0.1:8080` na laptopie (lub `http://192.168.1.50:8080` — oba działają, byle redirect URI był zarejestrowany w Spotify), loguje się przez Spotify.
+2. Host klika **Stwórz lobby**, dyktuje 6-znakowy kod.
+3. **Gracze** na telefonach wchodzą na `http://192.168.1.50:8080/join`, wpisują kod + nick.
+4. Wszyscy klikają „Gotowy", host „Rozpocznij grę".
+5. Muzyka leci z głośników laptopa hosta (Spotify SDK działa tylko na localhost / HTTPS — to ograniczenie Spotify dla kontekstu bezpiecznego). Gracze nie potrzebują audio — buzzują widząc UI.
+
+### Częste pułapki
+
+| Problem | Rozwiązanie |
+|---|---|
+| Telefon nie łączy się z LAN IP | Firewall blokuje port 8080. Otwórz go (patrz krok 3). Albo telefon jest w innej sieci (mobile data zamiast WiFi). |
+| Logowanie przez Spotify rzuca `INVALID_CLIENT: Invalid redirect URI` | Redirect URI z aktualnego adresu nie jest zarejestrowany w Dashboard. Dodaj go (krok 2). |
+| Po zalogowaniu wracam na 127.0.0.1 zamiast LAN IP | Sprawdź czy `OAUTH2_SUCCESS_REDIRECT="/"` w `docker-compose.yml` i przebuduj kontener. |
+| Spotify SDK nie odtwarza muzyki przez LAN IP | EME / Web Playback SDK wymaga secure context. Otwórz host na `localhost` lokalnie — gracze i tak nie potrzebują audio. |
+| Tokeny graczy znikają po restarcie kontenera | Ustaw `MELODIA_JWT_SECRET` w `docker-compose.yml` — stabilny sekret = stabilne tokeny. |
+
+---
+
+## 10c. Deploy produkcyjny na AWS EC2 (free tier 12 mies.)
+
+Z plikami w `deploy/` i `docker-compose.prod.yml` cały stack to: **Caddy (auto-HTTPS) + Spring Boot + React** w dwóch kontenerach. Free tier EC2 wystarcza w zupełności.
+
+### A. Przed deployem — w lokalnym repo
+
+1. **OBRÓĆ Spotify Client Secret** — stary jest w historii git'a, jest publiczny.
+   https://developer.spotify.com/dashboard → twoja apka → Edit Settings → **Rotate Client Secret** → skopiuj nowy.
+2. **Wygeneruj JWT secret** (raz, zapisz w bezpiecznym miejscu):
+   ```powershell
+   # Windows PowerShell:
+   [Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Maximum 256 }))
+   # macOS / Linux:
+   openssl rand -base64 48
+   ```
+3. **Zarejestruj darmową subdomenę** w https://www.duckdns.org (login przez GitHub/Google → utwórz subdomenę np. `jakatomelodia.duckdns.org` → zapisz token).
+
+### B. Stwórz instancję EC2
+
+1. https://console.aws.amazon.com → **EC2** → **Launch instance**.
+2. **Name**: `jaka-to-melodia`.
+3. **AMI**: Ubuntu Server 24.04 LTS (free tier eligible).
+4. **Instance type**: `t3.micro` (lub `t2.micro` jeśli `t3.micro` nie jest dostępny w free tier w twoim regionie).
+5. **Key pair** → Create new → `melodia-key` → pobierz `.pem` (zapisz w `~/.ssh/`).
+6. **Network settings** → Edit → **Allow** SSH, HTTP, HTTPS.
+   Security group rules:
+   - SSH (22) — tylko `My IP`.
+   - HTTP (80) — Anywhere (Let's Encrypt wymaga port 80 dla challenge).
+   - HTTPS (443) — Anywhere.
+   - Custom UDP (443) — Anywhere (HTTP/3, opcjonalne).
+7. **Storage**: 20 GB gp3 (free tier daje 30 GB EBS).
+8. **Launch**. Po chwili zobaczysz **Public IPv4** — zapisz, np. `3.121.45.67`.
+
+### C. Podlinkuj subdomenę DuckDNS pod EC2 IP
+
+W panelu DuckDNS wpisz `3.121.45.67` w polu **current ip** dla twojej subdomeny → **update ip**.
+
+Sprawdź:
+```powershell
+nslookup jakatomelodia.duckdns.org
+# Powinno pokazać 3.121.45.67
+```
+
+### D. Zarejestruj redirect URI w Spotify Dashboard
+
+https://developer.spotify.com/dashboard → twoja apka → Edit Settings → Redirect URIs → **Add**:
+```
+https://jakatomelodia.duckdns.org/login/oauth2/code/wolfship-auth
+```
+Save. (Zostaw też lokalne `http://127.0.0.1:8080/...` dla dev.)
+
+### E. Połącz się z EC2 i postaw Dockera
+
+```powershell
+# Windows PowerShell — chmod-equivalent:
+icacls "$env:USERPROFILE\.ssh\melodia-key.pem" /inheritance:r /grant:r "${env:USERNAME}:R"
+ssh -i $env:USERPROFILE\.ssh\melodia-key.pem ubuntu@3.121.45.67
+```
+
+Na maszynie zdalnej:
+```bash
+# Update + Docker
+sudo apt update && sudo apt -y upgrade
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker ubuntu
+exit  # i zaloguj się ponownie, żeby zaktualizować grupy
+```
+
+Po ponownym SSH:
+```bash
+# Sprawdź że Docker działa
+docker --version
+docker compose version
+```
+
+### F. Wgraj kod na serwer
+
+Najprościej — git clone (publiczne repo):
+```bash
+sudo apt install -y git
+git clone https://github.com/<twoj-user>/<repo> melodia
+cd melodia
+```
+
+Albo `scp` z lokalnej maszyny (gdy repo prywatne):
+```powershell
+# Z lokalnej maszyny Windows:
+scp -i $env:USERPROFILE\.ssh\melodia-key.pem -r . ubuntu@3.121.45.67:/home/ubuntu/melodia
+ssh -i $env:USERPROFILE\.ssh\melodia-key.pem ubuntu@3.121.45.67
+cd melodia
+```
+
+### G. Skonfiguruj `.env`
+
+Na serwerze:
+```bash
+cp deploy/.env.example .env
+nano .env
+```
+Wypełnij:
+```
+SPOTIFY_CLIENT_ID=...nowy z dashboardu...
+SPOTIFY_CLIENT_SECRET=...nowy sekret po rotacji...
+PUBLIC_DOMAIN=jakatomelodia.duckdns.org
+MELODIA_JWT_SECRET=...wygenerowany base64...
+```
+Zapisz (Ctrl+O, Enter, Ctrl+X).
+
+### H. Build + uruchomienie
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+Pierwszy build: ~5-10 min (Maven + npm). Kolejne deploye: ~2 min dzięki cache.
+
+Sprawdź:
+```bash
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f
+```
+Powinieneś zobaczyć:
+- `melodia-app | ... Started MelodiaApplication in X seconds`
+- `melodia-caddy | ... certificate obtained successfully` (Let's Encrypt)
+
+### I. Test
+
+W przeglądarce wejdź na `https://jakatomelodia.duckdns.org`:
+- 🟢 zielona kłódka HTTPS
+- Login Spotify (jako host)
+- Stwórz lobby
+- Z telefonu (gdziekolwiek na świecie) wejdź `https://jakatomelodia.duckdns.org/join` → wpisz kod → graj.
+
+### J. Aktualizacje aplikacji
+
+```bash
+cd melodia
+git pull
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+### K. Co warto wiedzieć
+
+- **Free tier EC2** to 750h t3.micro/mies. przez **12 miesięcy** od założenia konta. Później ~$8/mo lub przenieś się na inne darmowe (Oracle Cloud Always Free, Fly.io).
+- **Limit ruchu**: 1GB outbound/mies. free tier. Dla party z 10 osobami × kilka godzin → spokojnie się mieścisz (streaming idzie ze Spotify bezpośrednio do przeglądarki, nie przez twój serwer).
+- **DuckDNS IP** musi być odświeżany jeśli EC2 dostanie nowy IP. EC2 Elastic IP można przypiąć za darmo (gdy podpięty do działającej instancji) — zalecane.
+- **Backup**: stan gier jest w pamięci, więc nie ma co backupować. Sekrety trzymaj w bezpiecznym miejscu (`.env` nie jest w git).
+- **Monitoring**: `docker stats` pokaże RAM/CPU. AWS CloudWatch agent (opcjonalnie) → metryki w konsoli.
+
+### L. Częste problemy
+
+| Problem | Rozwiązanie |
+|---|---|
+| Caddy nie dostaje certyfikatu (`unable to authorize`) | Port 80 zablokowany w Security Group. Otwórz HTTP (80) w SG. |
+| Spotify rzuca `INVALID_REDIRECT_URI` | `https://...` URI nie jest dodany w Spotify Dashboard. Dodaj go (krok D). |
+| Po loginie wracam na `http://...` (mixed content) | `server.forward-headers-strategy=framework` w `application.properties` — sprawdź czy build ma najnowszą wersję. |
+| `502 Bad Gateway` | Backend jeszcze startuje (ma `start_period: 60s`). Poczekaj minutę. |
+| Pamięć przepełniona | Zmniejsz `-Xmx` w JAVA_OPTS lub przeskocz na `t3.small` (płatne). |
 
 ---
 

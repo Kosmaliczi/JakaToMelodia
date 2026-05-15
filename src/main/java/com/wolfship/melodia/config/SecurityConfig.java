@@ -33,10 +33,17 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
+                // Spring 6 default to też true, ale ustawiamy jawnie: kontekst NIE jest
+                // automatycznie zapisywany do sesji HTTP. Tylko OAuth2 login filter
+                // zapisuje explicit. Dzięki temu krótkotrwały PlayerPrincipal ustawiony
+                // przez JwtAuthenticationFilter podczas requestu gracza nie wycieka
+                // do sesji i nie zatruwa kolejnych requestów hosta na tym samym JSESSIONID.
+                .securityContext(ctx -> ctx.requireExplicitSave(true))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/index.html", "/css/**", "/js/**", "/favicon.ico",
                                          "/ws/**", "/api/game/**", "/api/auth/**",
-                                         "/api/rooms/**", "/join", "/player/**", "/game/**",
+                                         "/api/rooms/**", "/api/network/**",
+                                         "/join", "/player/**", "/game/**",
                                          "/assets/**").permitAll()
                         .anyRequest().permitAll()
                 )
